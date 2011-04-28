@@ -1,0 +1,36 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Adds a "Buy Now" button which bypasses the cart.
+ * Author: Chris Herberte [http://chrisherberte.com]
+ *
+ */
+
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ */
+function uc_buy_now_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'uc_product_add_to_cart_form_'. $form['nid']['#value']) {
+    $form['buy_now'] = array(
+      '#type' => 'submit',
+      '#name' => 'buy_now',
+      '#value' => t('Buy Now'),
+      '#submit' => array('uc_buy_now_buy_now'),
+    );
+  }
+}
+
+/**
+ * Submit handler for "Buy Now".
+ *
+ */
+function uc_buy_now_buy_now($form, &$form_state) {
+  uc_cart_add_item($form_state['values']['nid'], $form_state['values']['qty'], module_invoke_all('add_to_cart_data', $form_state['values']), NULL, variable_get('uc_cart_add_item_msg', TRUE));
+  $form_state['redirect'] = 'cart/checkout';
+}
+
+
