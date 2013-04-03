@@ -1,0 +1,104 @@
+<?php
+//in dollars
+define('CANADA_BASE',5);
+define('INTERNATIONAL_BASE',11);
+define('CANADA_PER',2);
+define('INTERNATIONAL_PER',4);
+
+/* hook_cron */
+
+function iusecoins_auto_price_cron(){
+  $shirt_price = _iuc_shirt_price();
+  if($shirt_price){
+    _iuc_update_price($shirt_price);
+  }
+  else{
+    return;
+  }
+  _iuc_update_shipping();
+  _iuc_update_surcharge();
+}
+
+
+function _iuc_update_price($price, $nid=2){
+  $sql = 'UPDATE {uc_products} set sell_price = %f where nid = %d';
+  $result = db_query($sql, $price, $nid);
+  if($result){
+    watchdog('iusecoins', "nid $nid updated to $price");
+  }
+}
+
+//Returns current shirt price in btc
+//or false if unavailable
+function _iuc_shirt_price($price_in_usd=18.5){
+  $mtgox_buy = _iuc_get_mtgox();
+  if ( $mtgox_buy !== FALSE ) {
+      $shirt_price = round($price_in_usd / $mtgox_buy,2);
+      return $shirt_price;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+function _iuc_get_mtgox(){
+  ini_set('user_agent', 'iusecoins.com price grabber');
+  $context = stream_context_create(array(
+  'http' => array(
+    'timeout' => 3      // Timeout in seconds
+        )
+  ));
+  $ticker = file_get_contents('https://mtgox.com/code/data/ticker.php', 0, $context);
+  $data = json_decode($ticker);
+  if ( isset($data->ticker->buy) ) {
+    $mtgox_buy = $data->ticker->buy; 
+    return $mtgox_buy;
+  }
+  else{
+    return FALSE;
+  }
+
+}
+
+function _iuc_curr($nid){
+  return round(db_result(db_query('SELECT sell_price FROM {uc_products} where nid = %d', $nid)),2);
+}
+
+function _iuc_update_shipping(){
+  $mtgox_buy = _iuc_get_mtgox();
+  if ( $mtgox_buy !== FALSE) {
+    _iuc_shipping(CANADA_BASE/$mtgox_buy,CANADA_PER/$mtgox_buy, 'CANADA');
+    _iuc_shipping(INTERNATIONAL_BASE/$mtgox_buy,INTERNATIONAL_PER/$mtgox_buy, 'INTERNATIONAL');
+  }
+  else{
+    return FALSE;
+  }
+}
+
+function _iuc_update_surcharge(){
+  $mtgox_buy = _iuc_get_mtgox();
+  if ( $mtgox_buy !== FALSE) {
+    $price = round(1.75/$mtgox_buy,2);
+    $sql = 'UPDATE {uc_product_options} set price=%f where nid=2 and oid=6';
+    $success = db_query($sql, $price);
+    if($success){
+      watchdog('iusecoins', "surcharge UPDATED xxxl is $price");
+    }
+    else{
+      watchdog('iusecoins', "surcharge NOT updated xxxl should be $price");
+    }
+    return $success;
+  }
+  else{
+    return FALSE;
+  }
+}
+
+function _iuc_shipping($base,$per, $label){
+  $sql = 'UPDATE {uc_flatrate_methods} set base_rate=%f, product_rate=%f where title="%s"';
+  $success = db_query($sql, $base, $per, $label);
+  if($sucess){
+    watchdog('iusecoins', "SHIPPING UPDATED $label: Base: $base, Per: $per");
+  }
+  return $success;
+}

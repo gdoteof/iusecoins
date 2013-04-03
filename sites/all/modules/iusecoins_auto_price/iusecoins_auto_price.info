@@ -1,0 +1,8 @@
+; $Id$
+name = Auto price 
+description = Automatically adjusts prices for iusecoins.com
+dependencies[] = uc_store
+dependencies[] = uc_cart
+package = Ubercart - extra
+core = 6.x
+

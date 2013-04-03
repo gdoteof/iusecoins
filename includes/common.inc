@@ -2721,6 +2721,7 @@ function drupal_cron_run() {
   $semaphore = variable_get('cron_semaphore', FALSE);
 
   if ($semaphore) {
+    drupal_set_message('found semaphore');
     if (time() - $semaphore > 3600) {
       // Either cron has been running for more than an hour or the semaphore
       // was not reset due to a database error.
